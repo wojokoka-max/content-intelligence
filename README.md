@@ -1,5 +1,3 @@
-# content-intelligence
-AI-owy silnik decyzyjny SEO, który interpretuje dane z Google Search Console i Analytics. Zamiast dashboardów pokazuje werdykt: co się dzieje z treścią, dlaczego zmienia się ruch i co zrobić dalej. Diagnoza przyczyn, priorytet odświeżeń, wykrywanie szans i sezonowości. Next.js 14 + TypeScript, deterministyczne silniki, opcjonalna narracja AI 
 # Content Intelligence
 
 AI-powered Search Console & Analytics interpretation platform.
@@ -24,3 +22,64 @@ Content Intelligence is an intelligent SEO decision engine that transforms raw G
 | **Executive Dashboard** — opens with the **Verdict**: a written editorial note, not a wall of metrics | `app/page.tsx`, `lib/verdict.ts` |
 
 ## Architecture
+
+```
+lib/
+  types.ts              domain types — the only contract between layers
+  window-stats.ts       28-day window aggregation, deltas, sparkline buckets
+  ctr-model.ts          expected CTR by position + CTR gap
+  engines/              pure, deterministic, dependency-free functions
+    seasonal.ts         YoY demand analysis
+    health.ts           0–100 score with named degradation signals
+    lifecycle.ts        stage = f(age, trend, distance from peak)
+    diagnosis.ts        rule cascade: cause + confidence + action
+    opportunity.ts      page-one candidates ranked by potential clicks
+    refresh-priority.ts weighted priority score (weights documented in code)
+  gsc/client.ts         Search Console REST wrapper (no SDK) + demo fallback
+  demo/data.ts          seeded, deterministic dataset covering every diagnosis path
+  analyze.ts            orchestrator: the only place engines meet I/O
+  briefing.ts           weekly briefing skeleton
+  anthropic.ts          minimal Messages API client (BYOK)
+  verdict.ts            composes the dashboard's opening sentences
+app/
+  page.tsx              Executive Dashboard (Verdict → priorities → leave alone)
+  opportunities/        Opportunity Finder table
+  health/               Health Monitor grouped by status
+  briefing/             Weekly briefing (deterministic view)
+  api/diagnose/         POST { url } → diagnosis + AI narrative
+  api/briefing/         GET → briefing facts + AI prose
+```
+
+Design principle: **engines decide, the model narrates.** Every diagnosis, score and classification is produced by deterministic, testable TypeScript. The Anthropic API layer only rewrites findings into richer editorial language — it can never change a verdict, and the app degrades gracefully when no API key is present.
+
+## Getting started
+
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+The app boots in **demo mode** (seeded dataset with ten articles engineered to exercise every diagnosis path: seasonality, ranking loss, SERP-feature CTR bleed, healthy growth, long decay).
+
+### Connecting real data
+
+1. Set `GSC_ACCESS_TOKEN` (OAuth 2.0 token with `webmasters.readonly` scope) and `GSC_SITE_URL` in `.env.local`.
+2. Set `DEMO_MODE=false`.
+3. Optionally set `ANTHROPIC_API_KEY` to enable AI narratives and the prose briefing.
+
+For production, replace the static token with a full OAuth flow or a service account; the client (`lib/gsc/client.ts`) is a thin REST wrapper, so nothing else changes.
+
+### Weekly briefing cron (Vercel)
+
+```json
+{ "crons": [{ "path": "/api/briefing", "schedule": "0 6 * * 1" }] }
+```
+
+## Philosophy
+
+Content Intelligence is not another SEO analytics dashboard. It is an AI SEO strategist that explains what is happening, why it happens and what should be done next. It is also — deliberately — the only SEO tool with a section called **"Zostaw w spokoju"**: when a drop is seasonal, the correct recommendation is no action, and the product says so.
+
+## License
+
+Private. © LowStyleLife / ailowstylelife.
